@@ -13,7 +13,7 @@ const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   0.1,
-  20000
+  10000
 );
 camera.position.set(0, 5, 8);
 camera.lookAt(0, 0, 0);
@@ -88,6 +88,11 @@ scene.add(ambientLight);
 const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
 directionalLight.position.set(5, 20, 10);
 directionalLight.castShadow = true;
+directionalLight.shadow.camera.left = -30;
+directionalLight.shadow.camera.right = 30;
+directionalLight.shadow.camera.top = 30;
+directionalLight.shadow.camera.bottom = -30;
+directionalLight.shadow.camera.far = 500;
 directionalLight.shadow.mapSize.width = 2048;
 directionalLight.shadow.mapSize.height = 2048;
 scene.add(directionalLight);
@@ -98,7 +103,7 @@ gltfLoader.load('/models/board/scene.gltf', (gltf) => {
   const board = gltf.scene;
   
   // Scale and position the board
-  board.scale.set(15, 15, 80); // Scale to be long and narrow
+  board.scale.set(15, 15, 160); // Scale to be extra long and narrow
   board.position.y = 0; // Position board flat at ground level
   
   // Enable shadows for all meshes in the model
@@ -149,7 +154,7 @@ gltfLoader.load('/models/mouse/scene.gltf', (gltf) => {
 // 5. Game State and Variables
 let gameRunning = true;
 const moveSpeed = 0.2;
-const gameSpeed = 0.08;
+const gameSpeed = 0.16;
 const cheeses = [];
 const obstacles = [];
 let score = 0;
@@ -166,7 +171,7 @@ function spawnCheese() {
   // Position and scale the cheese
   cheese.position.x = (Math.random() - 0.5) * 9;
   cheese.position.y = 1.2; // Raised higher to sit properly on top of the board
-  cheese.position.z = -100;
+  cheese.position.z = -60;
   cheese.scale.setScalar(0.8); // Scale down the cheese model appropriately
 
   // Enable shadows for all meshes in the cheese model
@@ -190,7 +195,7 @@ function spawnObstacle() {
   // Position and scale the mousetrap
   obstacle.position.x = (Math.random() - 0.5) * 9;
   obstacle.position.y = 0.75; // Position on top of chopping board
-  obstacle.position.z = -100;
+  obstacle.position.z = -60;
   obstacle.scale.setScalar(1.2); // Scale up the mousetrap model appropriately
 
   // Enable shadows for all meshes in the mousetrap model
@@ -302,7 +307,7 @@ function animate() {
   // Move and Check Cheese
   for (let i = cheeses.length - 1; i >= 0; i--) {
     const cheese = cheeses[i];
-    cheese.position.z += gameSpeed * 2;
+    cheese.position.z += gameSpeed * 4;
 
     if (cheese.position.z > 10) {
       scene.remove(cheese);
@@ -333,7 +338,7 @@ function animate() {
   // Move and Check Obstacles
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const obstacle = obstacles[i];
-    obstacle.position.z += gameSpeed * 2;
+    obstacle.position.z += gameSpeed * 4;
 
     if (obstacle.position.z > 10) {
       scene.remove(obstacle);
