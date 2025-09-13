@@ -32,7 +32,7 @@ canvas {
   top: 80px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: bold;
   color: white;
   background-color: rgba(0, 0, 0, 0.7);
@@ -40,6 +40,19 @@ canvas {
   border-radius: 10px;
   z-index: 1000;
   font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  gap: 5px;
+}
+
+#current-score {
+  font-size: 1.8rem;
+}
+
+#high-score {
+  font-size: 1.2rem;
+  opacity: 0.8;
 }
 #start-screen {
   position: fixed;
@@ -116,4 +129,21 @@ canvas {
 
 .pop {
   animation: pop-animation 0.2s ease-in-out;
+}
+
+#restart-button {
+  font-size: 1.2rem;
+  padding: 10px 20px;
+  background-color: #FFD700;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 15px;
+  transition: background-color 0.3s;
+}
+
+#restart-button:hover {
+  background-color: #FFC107;
 }

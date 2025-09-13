@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 
 // 1. Core Scene Setup
 const scene = new THREE.Scene();
@@ -11,7 +13,7 @@ const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   0.1,
-  1000
+  20000
 );
 camera.position.set(0, 5, 8);
 camera.lookAt(0, 0, 0);
@@ -27,6 +29,14 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
+// Load HDRI for background and environment lighting
+const exrLoader = new EXRLoader();
+exrLoader.load('/hdri/restaurant.exr', (texture) => {
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  scene.background = texture;
+  scene.environment = texture;
+});
+
 // Post-processing Setup
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
@@ -34,15 +44,32 @@ composer.addPass(renderPass);
 
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.7, // strength
-  0.5, // radius
-  0.85 // threshold
+  0.35, // strength
+  0.4, // radius
+  0.9 // threshold
 );
 composer.addPass(bloomPass);
 
 // 2. Loaders and Reusable Materials
 const textureLoader = new THREE.TextureLoader();
 const audioLoader = new THREE.AudioLoader();
+const gltfLoader = new GLTFLoader();
+
+// Load the cheese 3D model
+let cheeseModel = null;
+gltfLoader.load('/models/cheese/scene.gltf', (gltf) => {
+  cheeseModel = gltf.scene;
+}, undefined, (error) => {
+  console.error('Error loading cheese model:', error);
+});
+
+// Load the mousetrap 3D model
+let mousetrapModel = null;
+gltfLoader.load('/models/mousetrap/scene.gltf', (gltf) => {
+  mousetrapModel = gltf.scene;
+}, undefined, (error) => {
+  console.error('Error loading mousetrap model:', error);
+});
 
 const cheeseCollectibleTexture = textureLoader.load('/textures/cheese.jpg');
 const cheeseCollectibleMaterial = new THREE.MeshLambertMaterial({ map: cheeseCollectibleTexture });
@@ -55,68 +82,166 @@ audioLoader.load('/sounds/collect.mp3', function(buffer) {
 });
 
 // 3. Lighting
-const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+const ambientLight = new THREE.AmbientLight(0x404040, 1.0);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
-directionalLight.position.set(5, 10, 5);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+directionalLight.position.set(5, 20, 10);
 directionalLight.castShadow = true;
 directionalLight.shadow.mapSize.width = 2048;
 directionalLight.shadow.mapSize.height = 2048;
 scene.add(directionalLight);
 
 // 4. Game Objects
-const groundGeometry = new THREE.PlaneGeometry(20, 50);
-const woodTexture = textureLoader.load('/textures/wood.jpg');
-woodTexture.wrapS = THREE.RepeatWrapping;
-woodTexture.wrapT = THREE.RepeatWrapping;
-woodTexture.repeat.set(5, 50);
-const groundMaterial = new THREE.MeshLambertMaterial({ map: woodTexture });
-const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-ground.rotation.x = -Math.PI / 2;
-ground.scale.x = 0.5;
-ground.receiveShadow = true;
-scene.add(ground);
-
-const poppyGeometry = new THREE.PlaneGeometry(1, 1);
-const poppyTexture = textureLoader.load('/textures/poppy.png');
-const poppyMaterial = new THREE.MeshLambertMaterial({
-  map: poppyTexture,
-  transparent: true
+// Load the chopping board 3D model
+gltfLoader.load('/models/board/scene.gltf', (gltf) => {
+  const board = gltf.scene;
+  
+  // Scale and position the board
+  board.scale.set(15, 15, 80); // Scale to be long and narrow
+  board.position.y = 0; // Position board flat at ground level
+  
+  // Enable shadows for all meshes in the model
+  board.traverse((child) => {
+    if (child.isMesh) {
+      child.receiveShadow = true;
+      child.castShadow = true;
+    }
+  });
+  
+  scene.add(board);
+}, undefined, (error) => {
+  console.error('Error loading board model:', error);
 });
-const poppy = new THREE.Mesh(poppyGeometry, poppyMaterial);
-poppy.position.set(0, 1.0, 0);
-poppy.scale.set(2, 2, 2);
-poppy.castShadow = true;
-scene.add(poppy);
+
+// Load the Poppy Mouse 3D model
+let poppy = null;
+gltfLoader.load('/models/mouse/scene.gltf', (gltf) => {
+  poppy = gltf.scene;
+  
+  // Load the custom texture for Poppy Mouse
+  const mouseTextureLoader = new THREE.TextureLoader();
+  const poppyMouseTexture = mouseTextureLoader.load('/models/mouse/textures/poppy_mouse_texture.png');
+  
+  // Traverse the model to find and replace materials with custom texture
+  poppy.traverse((child) => {
+    if ((child.isMesh || child.isSkinnedMesh) && child.material) {
+      // Apply custom texture to the material
+      child.material.map = poppyMouseTexture;
+      child.material.needsUpdate = true;
+      
+      // Disable shadow casting, but allow receiving shadows
+      child.castShadow = false;
+      child.receiveShadow = true;
+    }
+  });
+  
+  // Position and scale the mouse model
+  poppy.position.set(0, 1.0, 0);
+  poppy.scale.setScalar(1.5); // Adjust scale as needed
+  poppy.rotation.y = Math.PI; // Rotate 180 degrees to face away from camera
+  
+  scene.add(poppy);
+}, undefined, (error) => {
+  console.error('Error loading mouse model:', error);
+});
 
 // 5. Game State and Variables
 let gameRunning = true;
 const moveSpeed = 0.2;
 const gameSpeed = 0.08;
 const cheeses = [];
+const obstacles = [];
 let score = 0;
+let highScore = 0;
 const keys = { a: false, d: false };
 
 // 6. Game Logic Functions
 function spawnCheese() {
-  if (!gameRunning) return;
+  if (!gameRunning || !cheeseModel) return;
 
-  const cheeseGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-  const cheese = new THREE.Mesh(cheeseGeometry, cheeseCollectibleMaterial);
+  // Clone the 3D cheese model
+  const cheese = cheeseModel.clone();
 
+  // Position and scale the cheese
   cheese.position.x = (Math.random() - 0.5) * 9;
-  cheese.position.y = 0.75; // Adjusted y so it's not halfway in the floor
-  cheese.position.z = -25;
-  cheese.castShadow = true;
+  cheese.position.y = 1.2; // Raised higher to sit properly on top of the board
+  cheese.position.z = -100;
+  cheese.scale.setScalar(0.8); // Scale down the cheese model appropriately
+
+  // Enable shadows for all meshes in the cheese model
+  cheese.traverse((child) => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
 
   scene.add(cheese);
   cheeses.push(cheese);
 }
 
+function spawnObstacle() {
+  if (!gameRunning || !mousetrapModel) return;
+
+  // Clone the 3D mousetrap model
+  const obstacle = mousetrapModel.clone();
+
+  // Position and scale the mousetrap
+  obstacle.position.x = (Math.random() - 0.5) * 9;
+  obstacle.position.y = 0.75; // Position on top of chopping board
+  obstacle.position.z = -100;
+  obstacle.scale.setScalar(1.2); // Scale up the mousetrap model appropriately
+
+  // Enable shadows for all meshes in the mousetrap model
+  obstacle.traverse((child) => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+
+  scene.add(obstacle);
+  obstacles.push(obstacle);
+}
+
 function updateScoreboard() {
-  const scoreboardElement = document.getElementById('scoreboard');
-  scoreboardElement.textContent = `Cheese: ${score} / 10`;
+  const currentScoreElement = document.getElementById('current-score');
+  const highScoreElement = document.getElementById('high-score');
+  currentScoreElement.textContent = `Score: ${score}`;
+  highScoreElement.textContent = `Best: ${highScore}`;
+}
+
+function loadHighScore() {
+  const saved = localStorage.getItem('poppyHighScore');
+  highScore = saved ? parseInt(saved) : 0;
+  updateScoreboard();
+}
+
+function saveHighScore() {
+  localStorage.setItem('poppyHighScore', highScore.toString());
+}
+
+function gameOver() {
+  gameRunning = false;
+  clearInterval(cheeseInterval);
+  clearInterval(obstacleInterval);
+  cancelAnimationFrame(animationId);
+  
+  // Update high score if needed
+  if (score > highScore) {
+    highScore = score;
+    saveHighScore();
+  }
+  
+  // Update game over screen
+  const finalScoreElement = document.getElementById('final-score');
+  const highScoreDisplayElement = document.getElementById('high-score-display');
+  const winScreen = document.getElementById('win-screen');
+  
+  finalScoreElement.textContent = `Final Score: ${score}`;
+  highScoreDisplayElement.textContent = `High Score: ${highScore}`;
+  winScreen.style.display = 'flex';
 }
 
 function checkCollision(obj1, obj2) {
@@ -145,6 +270,7 @@ window.addEventListener('resize', () => {
 
 // 8. Main Animation Loop
 let cheeseInterval;
+let obstacleInterval;
 let animationId;
 
 function animate() {
@@ -152,24 +278,26 @@ function animate() {
 
   animationId = requestAnimationFrame(animate);
 
-  // Player Movement
-  if (keys.a && poppy.position.x > -4.5) { // Adjusted boundaries for narrower board
-    poppy.position.x -= moveSpeed;
-  }
-  if (keys.d && poppy.position.x < 4.5) { // Adjusted boundaries for narrower board
-    poppy.position.x += moveSpeed;
-  }
+  // Player Movement (only if poppy is loaded)
+  if (poppy) {
+    if (keys.a && poppy.position.x > -4.5) { // Adjusted boundaries for narrower board
+      poppy.position.x -= moveSpeed;
+    }
+    if (keys.d && poppy.position.x < 4.5) { // Adjusted boundaries for narrower board
+      poppy.position.x += moveSpeed;
+    }
 
-  // Player Tilt Animation
-  let targetRotation = 0;
-  if (keys.a) {
-    targetRotation = 0.2; // Tilt left
-  } else if (keys.d) {
-    targetRotation = -0.2; // Tilt right
+    // Player Tilt Animation
+    let targetRotation = 0;
+    if (keys.a) {
+      targetRotation = 0.2; // Tilt left
+    } else if (keys.d) {
+      targetRotation = -0.2; // Tilt right
+    }
+    
+    // Smooth rotation using lerp
+    poppy.rotation.z = THREE.MathUtils.lerp(poppy.rotation.z, targetRotation, 0.1);
   }
-  
-  // Smooth rotation using lerp
-  poppy.rotation.z = THREE.MathUtils.lerp(poppy.rotation.z, targetRotation, 0.1);
 
   // Move and Check Cheese
   for (let i = cheeses.length - 1; i >= 0; i--) {
@@ -182,7 +310,7 @@ function animate() {
       continue;
     }
 
-    if (checkCollision(poppy, cheese)) {
+    if (poppy && checkCollision(poppy, cheese)) {
       if (collectSound.buffer && !collectSound.isPlaying) {
         collectSound.play();
       }
@@ -199,15 +327,24 @@ function animate() {
       
       scene.remove(cheese);
       cheeses.splice(i, 1);
+    }
+  }
 
-      if (score >= 10) {
-        gameRunning = false;
-        clearInterval(cheeseInterval);
-        cancelAnimationFrame(animationId);
-        const winScreen = document.getElementById('win-screen');
-        if(winScreen) winScreen.style.display = 'flex';
-        return;
-      }
+  // Move and Check Obstacles
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const obstacle = obstacles[i];
+    obstacle.position.z += gameSpeed * 2;
+
+    if (obstacle.position.z > 10) {
+      scene.remove(obstacle);
+      obstacles.splice(i, 1);
+      continue;
+    }
+
+    // Check collision between player and obstacle (mousetrap)
+    if (poppy && checkCollision(poppy, obstacle)) {
+      gameOver();
+      return;
     }
   }
 
@@ -216,14 +353,39 @@ function animate() {
 
 // 9. Game Start Function
 function startGame() {
+  // Reset game state
+  score = 0;
+  gameRunning = true;
+  loadHighScore();
+  updateScoreboard();
+  
+  // Clear any existing objects
+  cheeses.forEach(cheese => scene.remove(cheese));
+  obstacles.forEach(obstacle => scene.remove(obstacle));
+  cheeses.length = 0;
+  obstacles.length = 0;
+  
+  // Start spawning
   cheeseInterval = setInterval(spawnCheese, 3000);
+  obstacleInterval = setInterval(spawnObstacle, 4000);
   animate();
 }
 
 // 10. Start Screen Logic
 const startButton = document.getElementById('start-button');
+const restartButton = document.getElementById('restart-button');
+
 startButton.addEventListener('click', () => {
   const startScreen = document.getElementById('start-screen');
   startScreen.style.display = 'none';
   startGame();
 });
+
+restartButton.addEventListener('click', () => {
+  const winScreen = document.getElementById('win-screen');
+  winScreen.style.display = 'none';
+  startGame();
+});
+
+// Load high score on page load
+loadHighScore();

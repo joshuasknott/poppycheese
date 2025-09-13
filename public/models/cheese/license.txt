@@ -1,0 +1,11 @@
+Model Information:
+* title:	cheese wedge
+* source:	https://sketchfab.com/3d-models/cheese-wedge-5167e6bba94a4c09b4d780f625bceeda
+* author:	CzernO (https://sketchfab.com/czernobog)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "cheese wedge" (https://sketchfab.com/3d-models/cheese-wedge-5167e6bba94a4c09b4d780f625bceeda) by CzernO (https://sketchfab.com/czernobog) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

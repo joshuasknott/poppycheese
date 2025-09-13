@@ -10,15 +10,20 @@
   <body>
     <div id="start-screen">
       <h1>Poppy's Great Cheese Escape!</h1>
-      <p>Help Poppy collect 10 pieces of cheese to escape!</p>
+      <p>Collect as much cheese as possible! Avoid the red obstacles!</p>
       <button id="start-button">Click to Start</button>
     </div>
     <h1 id="title">Poppy's Great Cheese Escape!</h1>
     <div id="win-screen">
-      <h1>You Win!</h1>
-      <p>Poppy collected all the cheese!</p>
+      <h1>Game Over!</h1>
+      <p id="final-score">Final Score: 0</p>
+      <p id="high-score-display">High Score: 0</p>
+      <button id="restart-button">Play Again</button>
     </div>
-    <div id="scoreboard">Cheese: 0 / 10</div>
+    <div id="scoreboard">
+      <span id="current-score">Score: 0</span>
+      <span id="high-score">Best: 0</span>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
