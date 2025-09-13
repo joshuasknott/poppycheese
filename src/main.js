@@ -85,7 +85,7 @@ const poppyMaterial = new THREE.MeshLambertMaterial({
   transparent: true
 });
 const poppy = new THREE.Mesh(poppyGeometry, poppyMaterial);
-poppy.position.set(0, 0.5, 0);
+poppy.position.set(0, 1.0, 0);
 poppy.scale.set(2, 2, 2);
 poppy.castShadow = true;
 scene.add(poppy);
@@ -144,7 +144,7 @@ window.addEventListener('resize', () => {
 });
 
 // 8. Main Animation Loop
-const cheeseInterval = setInterval(spawnCheese, 3000);
+let cheeseInterval;
 let animationId;
 
 function animate() {
@@ -159,6 +159,17 @@ function animate() {
   if (keys.d && poppy.position.x < 4.5) { // Adjusted boundaries for narrower board
     poppy.position.x += moveSpeed;
   }
+
+  // Player Tilt Animation
+  let targetRotation = 0;
+  if (keys.a) {
+    targetRotation = 0.2; // Tilt left
+  } else if (keys.d) {
+    targetRotation = -0.2; // Tilt right
+  }
+  
+  // Smooth rotation using lerp
+  poppy.rotation.z = THREE.MathUtils.lerp(poppy.rotation.z, targetRotation, 0.1);
 
   // Move and Check Cheese
   for (let i = cheeses.length - 1; i >= 0; i--) {
@@ -178,6 +189,14 @@ function animate() {
 
       score++;
       updateScoreboard();
+      
+      // Add pop animation to scoreboard
+      const scoreboardElement = document.getElementById('scoreboard');
+      scoreboardElement.classList.add('pop');
+      setTimeout(() => {
+        scoreboardElement.classList.remove('pop');
+      }, 200);
+      
       scene.remove(cheese);
       cheeses.splice(i, 1);
 
@@ -195,5 +214,16 @@ function animate() {
   composer.render();
 }
 
-// 9. Start the Game
-animate();
+// 9. Game Start Function
+function startGame() {
+  cheeseInterval = setInterval(spawnCheese, 3000);
+  animate();
+}
+
+// 10. Start Screen Logic
+const startButton = document.getElementById('start-button');
+startButton.addEventListener('click', () => {
+  const startScreen = document.getElementById('start-screen');
+  startScreen.style.display = 'none';
+  startGame();
+});
