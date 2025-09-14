@@ -1,0 +1,11 @@
+Model Information:
+* title:	Knife
+* source:	https://sketchfab.com/3d-models/knife-d19566b7806e4eff89d655536cb55dc2
+* author:	ArdianVrijenhoek (https://sketchfab.com/ArdianVrijenhoek)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Knife" (https://sketchfab.com/3d-models/knife-d19566b7806e4eff89d655536cb55dc2) by ArdianVrijenhoek (https://sketchfab.com/ArdianVrijenhoek) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

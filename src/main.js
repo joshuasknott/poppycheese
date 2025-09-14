@@ -71,6 +71,14 @@ gltfLoader.load('/models/mousetrap/scene.gltf', (gltf) => {
   console.error('Error loading mousetrap model:', error);
 });
 
+// Load the knife 3D model
+let knifeModel = null;
+gltfLoader.load('/models/knife/scene.gltf', (gltf) => {
+  knifeModel = gltf.scene;
+}, undefined, (error) => {
+  console.error('Error loading knife model:', error);
+});
+
 const cheeseCollectibleTexture = textureLoader.load('/textures/cheese.jpg');
 const cheeseCollectibleMaterial = new THREE.MeshLambertMaterial({ map: cheeseCollectibleTexture });
 
@@ -157,9 +165,16 @@ const moveSpeed = 0.2;
 const gameSpeed = 0.16;
 const cheeses = [];
 const obstacles = [];
+const knives = [];
 let score = 0;
 let highScore = 0;
 const keys = { a: false, d: false };
+
+// Jump mechanics variables
+let velocityY = 0;
+let isJumping = false;
+const gravity = 0.02;
+const playerBaseY = 1.0;
 
 // 6. Game Logic Functions
 function spawnCheese() {
@@ -210,6 +225,33 @@ function spawnObstacle() {
   obstacles.push(obstacle);
 }
 
+function spawnKnife() {
+  if (!gameRunning || !knifeModel) return;
+
+  // Clone the 3D knife model
+  const knife = knifeModel.clone();
+
+  // Rotate the knife to lie flat on the board (90 degrees on X-axis)
+  knife.rotation.x = Math.PI / 2;
+
+  // Position and scale the knife
+  knife.position.x = (Math.random() - 0.5) * 9;
+  knife.position.y = 0.5; // Position on top of chopping board
+  knife.position.z = -100;
+  knife.scale.setScalar(2.0); // Scale up the knife model appropriately
+
+  // Enable shadows for all meshes in the knife model
+  knife.traverse((child) => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+
+  scene.add(knife);
+  knives.push(knife);
+}
+
 function updateScoreboard() {
   const currentScoreElement = document.getElementById('current-score');
   const highScoreElement = document.getElementById('high-score');
@@ -231,6 +273,7 @@ function gameOver() {
   gameRunning = false;
   clearInterval(cheeseInterval);
   clearInterval(obstacleInterval);
+  clearInterval(knifeInterval);
   cancelAnimationFrame(animationId);
   
   // Update high score if needed
@@ -259,6 +302,10 @@ function checkCollision(obj1, obj2) {
 window.addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'a') keys.a = true;
   if (event.key.toLowerCase() === 'd') keys.d = true;
+  if (event.key === ' ' && !isJumping) {
+    velocityY = 0.3;
+    isJumping = true;
+  }
 });
 
 window.addEventListener('keyup', (event) => {
@@ -276,6 +323,7 @@ window.addEventListener('resize', () => {
 // 8. Main Animation Loop
 let cheeseInterval;
 let obstacleInterval;
+let knifeInterval;
 let animationId;
 
 function animate() {
@@ -290,6 +338,21 @@ function animate() {
     }
     if (keys.d && poppy.position.x < 4.5) { // Adjusted boundaries for narrower board
       poppy.position.x += moveSpeed;
+    }
+
+    // Jump physics
+    if (isJumping) {
+      velocityY -= gravity; // Apply gravity
+    }
+    
+    // Update vertical position
+    poppy.position.y += velocityY;
+    
+    // Ground check
+    if (poppy.position.y <= playerBaseY) {
+      poppy.position.y = playerBaseY;
+      velocityY = 0;
+      isJumping = false;
     }
 
     // Player Tilt Animation
@@ -353,6 +416,24 @@ function animate() {
     }
   }
 
+  // Move and Check Knives
+  for (let i = knives.length - 1; i >= 0; i--) {
+    const knife = knives[i];
+    knife.position.z += gameSpeed * 4;
+
+    if (knife.position.z > 10) {
+      scene.remove(knife);
+      knives.splice(i, 1);
+      continue;
+    }
+
+    // Check collision between player and knife
+    if (poppy && checkCollision(poppy, knife)) {
+      gameOver();
+      return;
+    }
+  }
+
   composer.render();
 }
 
@@ -367,12 +448,15 @@ function startGame() {
   // Clear any existing objects
   cheeses.forEach(cheese => scene.remove(cheese));
   obstacles.forEach(obstacle => scene.remove(obstacle));
+  knives.forEach(knife => scene.remove(knife));
   cheeses.length = 0;
   obstacles.length = 0;
+  knives.length = 0;
   
   // Start spawning
   cheeseInterval = setInterval(spawnCheese, 3000);
   obstacleInterval = setInterval(spawnObstacle, 4000);
+  knifeInterval = setInterval(spawnKnife, 7000);
   animate();
 }
 
