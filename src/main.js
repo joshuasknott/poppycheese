@@ -6,6 +6,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+// Mobile detection for performance optimization
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                 (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /MacIntel/.test(navigator.platform));
+
+console.log('Device detected:', isMobile ? 'Mobile' : 'Desktop', '- Quality settings adjusted accordingly');
+
 // 1. Core Scene Setup
 const scene = new THREE.Scene();
 // Background will be set by HDRI loader or fallback
@@ -24,10 +30,15 @@ camera.lookAt(0, 5, -20); // Look more horizontally towards the game area
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+// Enable shadows only on desktop for better mobile performance
+if (!isMobile) {
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+}
+
 document.body.appendChild(renderer.domElement);
 
 // Create OrbitControls for Photo Mode
@@ -59,13 +70,16 @@ const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
 
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.35, // strength
-  0.4, // radius
-  0.9 // threshold
-);
-composer.addPass(bloomPass);
+// Add bloom effect only on desktop for better mobile performance
+if (!isMobile) {
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.35, // strength
+    0.4, // radius
+    0.9 // threshold
+  );
+  composer.addPass(bloomPass);
+}
 
 // 2. Loaders and Reusable Materials
 const textureLoader = new THREE.TextureLoader();
@@ -404,6 +418,66 @@ window.addEventListener('keydown', (event) => {
 window.addEventListener('keyup', (event) => {
   if (event.key.toLowerCase() === 'a') keys.a = false;
   if (event.key.toLowerCase() === 'd') keys.d = false;
+});
+
+// Touch Controls Event Listeners
+const leftControl = document.getElementById('left-control');
+const rightControl = document.getElementById('right-control');
+const jumpControl = document.getElementById('jump-control');
+
+// Left control (move left)
+leftControl.addEventListener('touchstart', (event) => {
+  event.preventDefault();
+  keys.a = true;
+});
+
+leftControl.addEventListener('touchend', (event) => {
+  event.preventDefault();
+  keys.a = false;
+});
+
+// Right control (move right)
+rightControl.addEventListener('touchstart', (event) => {
+  event.preventDefault();
+  keys.d = true;
+});
+
+rightControl.addEventListener('touchend', (event) => {
+  event.preventDefault();
+  keys.d = false;
+});
+
+// Jump control
+jumpControl.addEventListener('touchstart', (event) => {
+  event.preventDefault();
+  if (!isJumping) {
+    velocityY = 0.4;
+    isJumping = true;
+  }
+});
+
+// Prevent default touch behavior on all controls
+[leftControl, rightControl, jumpControl].forEach(control => {
+  control.addEventListener('touchmove', (event) => {
+    event.preventDefault();
+  });
+  
+  // Also add mouse events for testing on desktop
+  control.addEventListener('mousedown', (event) => {
+    event.preventDefault();
+    if (control === leftControl) keys.a = true;
+    if (control === rightControl) keys.d = true;
+    if (control === jumpControl && !isJumping) {
+      velocityY = 0.4;
+      isJumping = true;
+    }
+  });
+  
+  control.addEventListener('mouseup', (event) => {
+    event.preventDefault();
+    if (control === leftControl) keys.a = false;
+    if (control === rightControl) keys.d = false;
+  });
 });
 
 window.addEventListener('resize', () => {
