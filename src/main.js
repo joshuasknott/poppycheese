@@ -8,7 +8,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // 1. Core Scene Setup
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xFFFDD0); // Creamy yellow background
+// Background will be set by HDRI loader or fallback
 
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -16,8 +16,8 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   10000
 );
-camera.position.set(0, 8, 12);
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 11, 15);
+camera.lookAt(0, 5, -20); // Look more horizontally towards the game area
 
 // CORRECTED: The Audio Listener must be created and added to the camera
 // BEFORE any Audio objects try to use it.
@@ -36,10 +36,22 @@ controls.enabled = false; // Disabled during gameplay
 
 // Load HDRI for background and environment lighting
 const exrLoader = new EXRLoader();
+console.log('Loading restaurant HDRI...');
 exrLoader.load('/hdri/restaurant.exr', (texture) => {
+  console.log('HDRI texture loaded:', texture);
   texture.mapping = THREE.EquirectangularReflectionMapping;
+  
+  // Force set the background and environment
   scene.background = texture;
   scene.environment = texture;
+  
+  console.log('Restaurant HDRI background set successfully');
+  console.log('Scene background is now:', scene.background);
+}, undefined, (error) => {
+  console.error('Error loading restaurant HDRI:', error);
+  // Fallback to the creamy yellow background
+  scene.background = new THREE.Color(0xFFFDD0);
+  console.log('Using fallback background color');
 });
 
 // Post-processing Setup
@@ -84,6 +96,77 @@ gltfLoader.load('/models/knife/scene.gltf', (gltf) => {
   console.error('Error loading knife model:', error);
 });
 
+// Load the chef 3D model
+let chefModel = null;
+console.log('Attempting to load chef model from /models/chef/scene.gltf');
+
+// Load chef texture first
+const chefTexture = textureLoader.load('/models/chef/textures/Material0_diffuse.jpeg');
+chefTexture.flipY = false; // GLTF textures are typically not flipped
+
+gltfLoader.load('/models/chef/scene.gltf', (gltf) => {
+  console.log('Chef GLTF loaded successfully:', gltf);
+  const chef = gltf.scene;
+  
+  // First, center the model and get its actual size
+  const box = new THREE.Box3().setFromObject(chef);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  
+  console.log('Original chef center:', center);
+  console.log('Original chef size:', size);
+  
+  // Center the chef model at its origin
+  chef.position.sub(center);
+  
+  // Scale the chef to tower over the board - 2x bigger than before
+  const maxDimension = Math.max(size.x, size.y, size.z);
+  const targetSize = 50; // Make chef 2x larger than previous size (was 25)
+  const scale = targetSize / maxDimension;
+  chef.scale.setScalar(scale);
+  
+  console.log('Applied scale:', scale);
+  
+  // Position the chef at the far end of the chopping board
+  chef.position.set(0, 0, -80); // Position at the very end of the long board
+  chef.rotation.y = 0; // Face towards the board and player
+  
+  console.log('Final chef position:', chef.position);
+  
+  // Apply textures and fix materials
+  let meshCount = 0;
+  chef.traverse((child) => {
+    if (child.isMesh) {
+      meshCount++;
+      child.castShadow = true;
+      child.receiveShadow = true;
+      
+      // Apply chef texture and fix materials
+      if (child.material) {
+        // Clone material to avoid affecting other objects
+        child.material = child.material.clone();
+        
+        // Apply the chef texture
+        child.material.map = chefTexture;
+        child.material.needsUpdate = true;
+        
+        // Fix material properties
+        child.material.envMapIntensity = 0.3;
+        child.material.side = THREE.FrontSide;
+        
+        console.log('Applied chef texture to mesh:', child.name);
+      }
+    }
+  });
+  
+  console.log(`Chef model has ${meshCount} meshes with textures applied`);
+  scene.add(chef);
+  chefModel = chef;
+  console.log('Chef model centered, scaled, textured, and added to scene successfully');
+}, undefined, (error) => {
+  console.error('Error loading chef model:', error);
+});
+
 const cheeseCollectibleTexture = textureLoader.load('/textures/cheese.jpg');
 const cheeseCollectibleMaterial = new THREE.MeshLambertMaterial({ map: cheeseCollectibleTexture });
 
@@ -116,7 +199,7 @@ gltfLoader.load('/models/board/scene.gltf', (gltf) => {
   const board = gltf.scene;
   
   // Scale and position the board
-  board.scale.set(15, 15, 160); // Scale to be extra long and narrow
+  board.scale.set(25, 25, 200); // Make board much larger and longer
   board.position.y = 0; // Position board flat at ground level
   
   // Enable shadows for all meshes in the model
@@ -155,8 +238,8 @@ gltfLoader.load('/models/mouse/scene.gltf', (gltf) => {
   });
   
   // Position and scale the mouse model
-  poppy.position.set(0, 1.0, 0);
-  poppy.scale.setScalar(1.5); // Adjust scale as needed
+  poppy.position.set(0, 1.5, 0); // Raised higher to sit properly on the board
+  poppy.scale.setScalar(2.5); // Reduce mouse size for better proportions
   poppy.rotation.y = Math.PI; // Rotate 180 degrees to face away from camera
   
   scene.add(poppy);
@@ -166,8 +249,8 @@ gltfLoader.load('/models/mouse/scene.gltf', (gltf) => {
 
 // 5. Game State and Variables
 let gameRunning = true;
-const moveSpeed = 0.2;
-const gameSpeed = 0.08;
+const moveSpeed = 0.3;
+const gameSpeed = 0.12;
 const cheeses = [];
 const obstacles = [];
 const knives = [];
@@ -179,7 +262,7 @@ const keys = { a: false, d: false };
 let velocityY = 0;
 let isJumping = false;
 const gravity = 0.015;
-const playerBaseY = 1.0;
+const playerBaseY = 1.5; // Updated to match new mouse position
 
 // 6. Game Logic Functions
 function spawnCheese() {
@@ -188,11 +271,11 @@ function spawnCheese() {
   // Clone the 3D cheese model
   const cheese = cheeseModel.clone();
 
-  // Position and scale the cheese
-  cheese.position.x = (Math.random() - 0.5) * 9;
-  cheese.position.y = 1.2; // Raised higher to sit properly on top of the board
-  cheese.position.z = -60;
-  cheese.scale.setScalar(0.8); // Scale down the cheese model appropriately
+  // Position and scale the cheese - spawn on the chopping board
+  cheese.position.x = (Math.random() - 0.5) * 12; // Wider spawn range to match larger board
+  cheese.position.y = 1.8; // Raised higher to sit properly on top of the board without phasing
+  cheese.position.z = -70 + (Math.random() - 0.5) * 10; // Add some Z variation to prevent merging
+  cheese.scale.setScalar(2.0); // Make cheese even bigger for better visibility
 
   // Enable shadows for all meshes in the cheese model
   cheese.traverse((child) => {
@@ -212,11 +295,11 @@ function spawnObstacle() {
   // Clone the 3D mousetrap model
   const obstacle = mousetrapModel.clone();
 
-  // Position and scale the mousetrap
-  obstacle.position.x = (Math.random() - 0.5) * 9;
-  obstacle.position.y = 0.75; // Position on top of chopping board
-  obstacle.position.z = -60;
-  obstacle.scale.setScalar(1.2); // Scale up the mousetrap model appropriately
+  // Position and scale the mousetrap - spawn on the chopping board
+  obstacle.position.x = (Math.random() - 0.5) * 12; // Wider spawn range to match larger board
+  obstacle.position.y = 1.5; // Raised higher to sit properly on top of the board without phasing
+  obstacle.position.z = -70 + (Math.random() - 0.5) * 10; // Add some Z variation to prevent merging
+  obstacle.scale.setScalar(3.0); // Make mousetrap even bigger for better visibility
 
   // Enable shadows for all meshes in the mousetrap model
   obstacle.traverse((child) => {
@@ -239,11 +322,11 @@ function spawnKnife() {
   // Rotate the knife to lie flat on the board (90 degrees on X-axis)
   knife.rotation.x = Math.PI / 2;
 
-  // Position and scale the knife
-  knife.position.x = (Math.random() - 0.5) * 9;
-  knife.position.y = 1.0; // Position at player height for proper collision
-  knife.position.z = -60; // Spawn at same distance as other obstacles
-  knife.scale.setScalar(2.0); // Scale up the knife model appropriately
+  // Position and scale the knife - spawn on the chopping board
+  knife.position.x = 0; // Center knife on board to ensure it doesn't go off edges
+  knife.position.y = 1.3; // Raised higher to sit properly on top of the board without phasing
+  knife.position.z = -70 + (Math.random() - 0.5) * 8; // Add some Z variation to prevent merging
+  knife.scale.set(8.0, 3.0, 3.0); // Slightly smaller width but taller, uniform Y and Z scaling
 
   // Enable shadows for all meshes in the knife model
   knife.traverse((child) => {
@@ -280,11 +363,8 @@ function gameOver() {
   clearInterval(obstacleInterval);
   clearInterval(knifeInterval);
   
-  // Stop the animation loop
-  if (animationId) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
-  }
+  // DON'T stop the animation loop - keep it running for Photo Mode
+  // Animation loop continues, but game logic stops due to gameRunning = false
   
   // Enable Photo Mode (OrbitControls)
   controls.enabled = true;
@@ -346,10 +426,10 @@ function animate() {
   if (gameRunning) {
     // Player Movement (only if poppy is loaded)
     if (poppy) {
-      if (keys.a && poppy.position.x > -4.5) { // Adjusted boundaries for narrower board
+      if (keys.a && poppy.position.x > -8) { // Adjusted boundaries for larger board
         poppy.position.x -= moveSpeed;
       }
-      if (keys.d && poppy.position.x < 4.5) { // Adjusted boundaries for narrower board
+      if (keys.d && poppy.position.x < 8) { // Adjusted boundaries for larger board
         poppy.position.x += moveSpeed;
       }
 
@@ -385,7 +465,7 @@ function animate() {
       const cheese = cheeses[i];
       cheese.position.z += gameSpeed * 4;
 
-      if (cheese.position.z > 10) {
+      if (cheese.position.z > 30) { // Let objects travel much further before removal
         scene.remove(cheese);
         cheeses.splice(i, 1);
         continue;
@@ -416,7 +496,7 @@ function animate() {
       const obstacle = obstacles[i];
       obstacle.position.z += gameSpeed * 4;
 
-      if (obstacle.position.z > 10) {
+      if (obstacle.position.z > 30) { // Let objects travel much further before removal
         scene.remove(obstacle);
         obstacles.splice(i, 1);
         continue;
@@ -434,7 +514,7 @@ function animate() {
       const knife = knives[i];
       knife.position.z += gameSpeed * 4;
 
-      if (knife.position.z > 10) {
+      if (knife.position.z > 30) { // Let objects travel much further before removal
         scene.remove(knife);
         knives.splice(i, 1);
         continue;
@@ -455,12 +535,6 @@ function animate() {
 
 // 9. Game Start Function
 function startGame() {
-  // Stop any existing animation loop
-  if (animationId) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
-  }
-  
   // Reset game state
   score = 0;
   gameRunning = true;
@@ -468,8 +542,8 @@ function startGame() {
   updateScoreboard();
   
   // Reset camera to fixed static position
-  camera.position.set(0, 8, 12);
-  camera.lookAt(0, 0, 0);
+  camera.position.set(0, 11, 15);
+  camera.lookAt(0, 5, -20); // Look more horizontally towards the game area
   
   // Disable Photo Mode (OrbitControls) during gameplay
   controls.enabled = false;
@@ -482,15 +556,10 @@ function startGame() {
   obstacles.length = 0;
   knives.length = 0;
   
-  // Start spawning
-  cheeseInterval = setInterval(spawnCheese, 3000);
-  obstacleInterval = setInterval(spawnObstacle, 4000);
-  knifeInterval = setInterval(spawnKnife, 7000);
-  
-  // Only start animation loop if it's not already running
-  if (!animationId) {
-    animate();
-  }
+  // Start spawning with better separation - 1.56x faster spawn rate (1.3 * 1.2)
+  cheeseInterval = setInterval(spawnCheese, 1790); // 2150 / 1.2 = 1792 (rounded to 1790)
+  obstacleInterval = setInterval(spawnObstacle, 3525); // 4230 / 1.2 = 3525
+  knifeInterval = setInterval(spawnKnife, 5765); // 6920 / 1.2 = 5767 (rounded to 5765)
 }
 
 // 10. Start Screen Logic
