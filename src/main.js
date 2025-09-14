@@ -241,8 +241,8 @@ function spawnKnife() {
 
   // Position and scale the knife
   knife.position.x = (Math.random() - 0.5) * 9;
-  knife.position.y = 0.5; // Position on top of chopping board
-  knife.position.z = -100;
+  knife.position.y = 1.0; // Position at player height for proper collision
+  knife.position.z = -60; // Spawn at same distance as other obstacles
   knife.scale.setScalar(2.0); // Scale up the knife model appropriately
 
   // Enable shadows for all meshes in the knife model
@@ -279,6 +279,12 @@ function gameOver() {
   clearInterval(cheeseInterval);
   clearInterval(obstacleInterval);
   clearInterval(knifeInterval);
+  
+  // Stop the animation loop
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
   
   // Enable Photo Mode (OrbitControls)
   controls.enabled = true;
@@ -449,6 +455,12 @@ function animate() {
 
 // 9. Game Start Function
 function startGame() {
+  // Stop any existing animation loop
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+  
   // Reset game state
   score = 0;
   gameRunning = true;
@@ -474,7 +486,11 @@ function startGame() {
   cheeseInterval = setInterval(spawnCheese, 3000);
   obstacleInterval = setInterval(spawnObstacle, 4000);
   knifeInterval = setInterval(spawnKnife, 7000);
-  animate();
+  
+  // Only start animation loop if it's not already running
+  if (!animationId) {
+    animate();
+  }
 }
 
 // 10. Start Screen Logic

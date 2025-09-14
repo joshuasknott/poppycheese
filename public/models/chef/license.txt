@@ -1,0 +1,11 @@
+Model Information:
+* title:	Rolly Polly Chef
+* source:	https://sketchfab.com/3d-models/rolly-polly-chef-c990713e770641e6800032b23a7555f3
+* author:	Horton (https://sketchfab.com/Horton)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Rolly Polly Chef" (https://sketchfab.com/3d-models/rolly-polly-chef-c990713e770641e6800032b23a7555f3) by Horton (https://sketchfab.com/Horton) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
