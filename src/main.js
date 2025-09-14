@@ -233,6 +233,7 @@ gltfLoader.load('/models/board/scene.gltf', (gltf) => {
 let poppy = null;
 gltfLoader.load('/models/mouse/scene.gltf', (gltf) => {
   poppy = gltf.scene;
+  console.log('Poppy mouse model loaded successfully:', poppy ? 'YES' : 'NO');
   
   // Load the custom texture for Poppy Mouse
   const mouseTextureLoader = new THREE.TextureLoader();
@@ -400,9 +401,26 @@ function gameOver() {
 }
 
 function checkCollision(obj1, obj2) {
-  const box1 = new THREE.Box3().setFromObject(obj1);
-  const box2 = new THREE.Box3().setFromObject(obj2);
-  return box1.intersectsBox(box2);
+  if (!obj1 || !obj2) {
+    if (isMobile) console.log('Collision check: null object detected', obj1 ? 'obj1 exists' : 'obj1 is null', obj2 ? 'obj2 exists' : 'obj2 is null');
+    return false;
+  }
+  
+  try {
+    const box1 = new THREE.Box3().setFromObject(obj1);
+    const box2 = new THREE.Box3().setFromObject(obj2);
+    
+    // Additional check for empty/invalid boxes
+    if (box1.isEmpty() || box2.isEmpty()) {
+      if (isMobile) console.log('Collision check: empty bounding box detected');
+      return false;
+    }
+    
+    return box1.intersectsBox(box2);
+  } catch (error) {
+    if (isMobile) console.error('Collision detection error:', error);
+    return false;
+  }
 }
 
 // 7. Event Listeners
@@ -546,6 +564,8 @@ function animate() {
       }
 
       if (poppy && checkCollision(poppy, cheese)) {
+        if (isMobile) console.log('Cheese collision detected! Score:', score + 1);
+        
         if (collectSound.buffer && !collectSound.isPlaying) {
           collectSound.play();
         }
@@ -578,6 +598,7 @@ function animate() {
 
       // Check collision between player and obstacle (mousetrap)
       if (poppy && checkCollision(poppy, obstacle)) {
+        if (isMobile) console.log('Mousetrap collision detected! Game Over');
         gameOver();
         return;
       }
@@ -596,6 +617,7 @@ function animate() {
 
       // Check collision between player and knife
       if (poppy && checkCollision(poppy, knife)) {
+        if (isMobile) console.log('Knife collision detected! Game Over');
         gameOver();
         return;
       }
