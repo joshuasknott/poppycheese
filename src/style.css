@@ -113,6 +113,7 @@ canvas {
   flex-direction: column;
   font-family: sans-serif;
   text-align: center;
+  pointer-events: none;
 }
 
 @keyframes pop-animation {
@@ -142,6 +143,7 @@ canvas {
   font-weight: bold;
   margin-top: 15px;
   transition: background-color 0.3s;
+  pointer-events: auto;
 }
 
 #restart-button:hover {

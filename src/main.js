@@ -4,6 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // 1. Core Scene Setup
 const scene = new THREE.Scene();
@@ -15,7 +16,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   10000
 );
-camera.position.set(0, 5, 8);
+camera.position.set(0, 8, 12);
 camera.lookAt(0, 0, 0);
 
 // CORRECTED: The Audio Listener must be created and added to the camera
@@ -28,6 +29,10 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
+
+// Create OrbitControls for Photo Mode
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enabled = false; // Disabled during gameplay
 
 // Load HDRI for background and environment lighting
 const exrLoader = new EXRLoader();
@@ -162,7 +167,7 @@ gltfLoader.load('/models/mouse/scene.gltf', (gltf) => {
 // 5. Game State and Variables
 let gameRunning = true;
 const moveSpeed = 0.2;
-const gameSpeed = 0.16;
+const gameSpeed = 0.08;
 const cheeses = [];
 const obstacles = [];
 const knives = [];
@@ -173,7 +178,7 @@ const keys = { a: false, d: false };
 // Jump mechanics variables
 let velocityY = 0;
 let isJumping = false;
-const gravity = 0.02;
+const gravity = 0.015;
 const playerBaseY = 1.0;
 
 // 6. Game Logic Functions
@@ -274,7 +279,9 @@ function gameOver() {
   clearInterval(cheeseInterval);
   clearInterval(obstacleInterval);
   clearInterval(knifeInterval);
-  cancelAnimationFrame(animationId);
+  
+  // Enable Photo Mode (OrbitControls)
+  controls.enabled = true;
   
   // Update high score if needed
   if (score > highScore) {
@@ -303,7 +310,7 @@ window.addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'a') keys.a = true;
   if (event.key.toLowerCase() === 'd') keys.d = true;
   if (event.key === ' ' && !isJumping) {
-    velocityY = 0.3;
+    velocityY = 0.4;
     isJumping = true;
   }
 });
@@ -327,113 +334,116 @@ let knifeInterval;
 let animationId;
 
 function animate() {
-  if (!gameRunning) return;
-
   animationId = requestAnimationFrame(animate);
 
-  // Player Movement (only if poppy is loaded)
-  if (poppy) {
-    if (keys.a && poppy.position.x > -4.5) { // Adjusted boundaries for narrower board
-      poppy.position.x -= moveSpeed;
-    }
-    if (keys.d && poppy.position.x < 4.5) { // Adjusted boundaries for narrower board
-      poppy.position.x += moveSpeed;
-    }
-
-    // Jump physics
-    if (isJumping) {
-      velocityY -= gravity; // Apply gravity
-    }
-    
-    // Update vertical position
-    poppy.position.y += velocityY;
-    
-    // Ground check
-    if (poppy.position.y <= playerBaseY) {
-      poppy.position.y = playerBaseY;
-      velocityY = 0;
-      isJumping = false;
-    }
-
-    // Player Tilt Animation
-    let targetRotation = 0;
-    if (keys.a) {
-      targetRotation = 0.2; // Tilt left
-    } else if (keys.d) {
-      targetRotation = -0.2; // Tilt right
-    }
-    
-    // Smooth rotation using lerp
-    poppy.rotation.z = THREE.MathUtils.lerp(poppy.rotation.z, targetRotation, 0.1);
-  }
-
-  // Move and Check Cheese
-  for (let i = cheeses.length - 1; i >= 0; i--) {
-    const cheese = cheeses[i];
-    cheese.position.z += gameSpeed * 4;
-
-    if (cheese.position.z > 10) {
-      scene.remove(cheese);
-      cheeses.splice(i, 1);
-      continue;
-    }
-
-    if (poppy && checkCollision(poppy, cheese)) {
-      if (collectSound.buffer && !collectSound.isPlaying) {
-        collectSound.play();
+  // Game logic only runs when game is active
+  if (gameRunning) {
+    // Player Movement (only if poppy is loaded)
+    if (poppy) {
+      if (keys.a && poppy.position.x > -4.5) { // Adjusted boundaries for narrower board
+        poppy.position.x -= moveSpeed;
+      }
+      if (keys.d && poppy.position.x < 4.5) { // Adjusted boundaries for narrower board
+        poppy.position.x += moveSpeed;
       }
 
-      score++;
-      updateScoreboard();
+      // Jump physics
+      if (isJumping) {
+        velocityY -= gravity; // Apply gravity
+      }
       
-      // Add pop animation to scoreboard
-      const scoreboardElement = document.getElementById('scoreboard');
-      scoreboardElement.classList.add('pop');
-      setTimeout(() => {
-        scoreboardElement.classList.remove('pop');
-      }, 200);
+      // Update vertical position
+      poppy.position.y += velocityY;
       
-      scene.remove(cheese);
-      cheeses.splice(i, 1);
+      // Ground check
+      if (poppy.position.y <= playerBaseY) {
+        poppy.position.y = playerBaseY;
+        velocityY = 0;
+        isJumping = false;
+      }
+
+      // Player Tilt Animation
+      let targetRotation = 0;
+      if (keys.a) {
+        targetRotation = 0.2; // Tilt left
+      } else if (keys.d) {
+        targetRotation = -0.2; // Tilt right
+      }
+      
+      // Smooth rotation using lerp
+      poppy.rotation.z = THREE.MathUtils.lerp(poppy.rotation.z, targetRotation, 0.1);
+    }
+
+    // Move and Check Cheese
+    for (let i = cheeses.length - 1; i >= 0; i--) {
+      const cheese = cheeses[i];
+      cheese.position.z += gameSpeed * 4;
+
+      if (cheese.position.z > 10) {
+        scene.remove(cheese);
+        cheeses.splice(i, 1);
+        continue;
+      }
+
+      if (poppy && checkCollision(poppy, cheese)) {
+        if (collectSound.buffer && !collectSound.isPlaying) {
+          collectSound.play();
+        }
+
+        score++;
+        updateScoreboard();
+        
+        // Add pop animation to scoreboard
+        const scoreboardElement = document.getElementById('scoreboard');
+        scoreboardElement.classList.add('pop');
+        setTimeout(() => {
+          scoreboardElement.classList.remove('pop');
+        }, 200);
+        
+        scene.remove(cheese);
+        cheeses.splice(i, 1);
+      }
+    }
+
+    // Move and Check Obstacles
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const obstacle = obstacles[i];
+      obstacle.position.z += gameSpeed * 4;
+
+      if (obstacle.position.z > 10) {
+        scene.remove(obstacle);
+        obstacles.splice(i, 1);
+        continue;
+      }
+
+      // Check collision between player and obstacle (mousetrap)
+      if (poppy && checkCollision(poppy, obstacle)) {
+        gameOver();
+        return;
+      }
+    }
+
+    // Move and Check Knives
+    for (let i = knives.length - 1; i >= 0; i--) {
+      const knife = knives[i];
+      knife.position.z += gameSpeed * 4;
+
+      if (knife.position.z > 10) {
+        scene.remove(knife);
+        knives.splice(i, 1);
+        continue;
+      }
+
+      // Check collision between player and knife
+      if (poppy && checkCollision(poppy, knife)) {
+        gameOver();
+        return;
+      }
     }
   }
 
-  // Move and Check Obstacles
-  for (let i = obstacles.length - 1; i >= 0; i--) {
-    const obstacle = obstacles[i];
-    obstacle.position.z += gameSpeed * 4;
-
-    if (obstacle.position.z > 10) {
-      scene.remove(obstacle);
-      obstacles.splice(i, 1);
-      continue;
-    }
-
-    // Check collision between player and obstacle (mousetrap)
-    if (poppy && checkCollision(poppy, obstacle)) {
-      gameOver();
-      return;
-    }
-  }
-
-  // Move and Check Knives
-  for (let i = knives.length - 1; i >= 0; i--) {
-    const knife = knives[i];
-    knife.position.z += gameSpeed * 4;
-
-    if (knife.position.z > 10) {
-      scene.remove(knife);
-      knives.splice(i, 1);
-      continue;
-    }
-
-    // Check collision between player and knife
-    if (poppy && checkCollision(poppy, knife)) {
-      gameOver();
-      return;
-    }
-  }
-
+  // Always update controls and render, regardless of game state
+  controls.update();
   composer.render();
 }
 
@@ -444,6 +454,13 @@ function startGame() {
   gameRunning = true;
   loadHighScore();
   updateScoreboard();
+  
+  // Reset camera to fixed static position
+  camera.position.set(0, 8, 12);
+  camera.lookAt(0, 0, 0);
+  
+  // Disable Photo Mode (OrbitControls) during gameplay
+  controls.enabled = false;
   
   // Clear any existing objects
   cheeses.forEach(cheese => scene.remove(cheese));
@@ -478,3 +495,6 @@ restartButton.addEventListener('click', () => {
 
 // Load high score on page load
 loadHighScore();
+
+// Start the main animation loop
+animate();
