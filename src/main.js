@@ -12,6 +12,9 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 
 console.log('Device detected:', isMobile ? 'Mobile' : 'Desktop', '- Quality settings adjusted accordingly');
 
+// Debug counter for mobile
+let frameCount = 0;
+
 // 1. Core Scene Setup
 const scene = new THREE.Scene();
 // Background will be set by HDRI loader or fallback
@@ -285,6 +288,8 @@ function spawnCheese() {
 
   // Clone the 3D cheese model
   const cheese = cheeseModel.clone();
+  
+  if (isMobile) console.log('Spawning cheese');
 
   // Position and scale the cheese - spawn on the chopping board
   cheese.position.x = (Math.random() - 0.5) * 12; // Wider spawn range to match larger board
@@ -309,6 +314,8 @@ function spawnObstacle() {
 
   // Clone the 3D mousetrap model
   const obstacle = mousetrapModel.clone();
+  
+  if (isMobile) console.log('Spawning mousetrap obstacle');
 
   // Position and scale the mousetrap - spawn on the chopping board
   obstacle.position.x = (Math.random() - 0.5) * 12; // Wider spawn range to match larger board
@@ -333,6 +340,8 @@ function spawnKnife() {
 
   // Clone the 3D knife model
   const knife = knifeModel.clone();
+  
+  if (isMobile) console.log('Spawning knife');
 
   // Rotate the knife to lie flat on the board (90 degrees on X-axis)
   knife.rotation.x = Math.PI / 2;
@@ -406,20 +415,33 @@ function checkCollision(obj1, obj2) {
     return false;
   }
   
+  // Primary method: Distance-based collision (more reliable on mobile)
+  const distance = obj1.position.distanceTo(obj2.position);
+  const collisionThreshold = 1.5; // Adjust this value for sensitivity
+  
+  if (distance < collisionThreshold) {
+    if (isMobile) console.log('Distance collision detected! Distance:', distance.toFixed(2));
+    return true;
+  }
+  
+  // Fallback method: Box3 collision (for desktop/when models load properly)
   try {
     const box1 = new THREE.Box3().setFromObject(obj1);
     const box2 = new THREE.Box3().setFromObject(obj2);
     
-    // Additional check for empty/invalid boxes
+    // Check if boxes are valid
     if (box1.isEmpty() || box2.isEmpty()) {
-      if (isMobile) console.log('Collision check: empty bounding box detected');
-      return false;
+      if (isMobile) console.log('Using distance-only collision (empty bounding boxes)');
+      return false; // Already checked distance above
     }
     
-    return box1.intersectsBox(box2);
+    const boxCollision = box1.intersectsBox(box2);
+    if (boxCollision && isMobile) console.log('Box collision detected!');
+    return boxCollision;
+    
   } catch (error) {
-    if (isMobile) console.error('Collision detection error:', error);
-    return false;
+    if (isMobile) console.log('Box collision failed, using distance-only result:', distance < collisionThreshold);
+    return false; // Already checked distance above
   }
 }
 
@@ -514,6 +536,17 @@ let animationId;
 function animate() {
   animationId = requestAnimationFrame(animate);
 
+  // Debug logging for mobile (every 60 frames = ~1 second)
+  if (isMobile) {
+    frameCount++;
+    if (frameCount % 60 === 0) {
+      console.log('Game running:', gameRunning, '- Poppy loaded:', poppy ? 'YES' : 'NO', '- Frame:', frameCount);
+      if (poppy) {
+        console.log('Poppy position:', poppy.position.x.toFixed(2), poppy.position.y.toFixed(2), poppy.position.z.toFixed(2));
+      }
+    }
+  }
+
   // Game logic only runs when game is active
   if (gameRunning) {
     // Player Movement (only if poppy is loaded)
@@ -564,7 +597,11 @@ function animate() {
       }
 
       if (poppy && checkCollision(poppy, cheese)) {
-        if (isMobile) console.log('Cheese collision detected! Score:', score + 1);
+        if (isMobile) {
+          console.log('Cheese collision detected! Score:', score + 1);
+          console.log('Poppy position:', poppy.position.x.toFixed(2), poppy.position.y.toFixed(2), poppy.position.z.toFixed(2));
+          console.log('Cheese position:', cheese.position.x.toFixed(2), cheese.position.y.toFixed(2), cheese.position.z.toFixed(2));
+        }
         
         if (collectSound.buffer && !collectSound.isPlaying) {
           collectSound.play();
